@@ -9,7 +9,8 @@ import streamlit.components.v1 as components
 @st.cache_resource
 def authorize_gspread():
     """
-    Connects to Google API using Streamlit Secrets.
+    Підключається до Google API, використовуючи Streamlit Secrets.
+    ТІЛЬКИ повертає клієнт або повертає None. Жодних st.* елементів!
     """
     try:
         creds = Credentials.from_service_account_info(
@@ -17,11 +18,9 @@ def authorize_gspread():
             scopes=["https://www.googleapis.com/auth/spreadsheets"]
         )
         client = gspread.authorize(creds)
-        st.toast("✅ Підключено до Google Sheets!")
         return client
     except Exception as e:
-        st.error(f"Помилка підключення до Google Sheets: {e}")
-        st.error("Переконайся, що ти правильно налаштував 'secrets.toml'")
+        print(f"Помилка авторизації gspread: {e}")
         return None
 
 @st.cache_data(ttl=300)
@@ -275,10 +274,12 @@ def update_google_sheet(sheet_title, row, col, value):
 
 def initialize_session():
     """
-    Runs once at session start. Finds the workout and stores it in session state.
+    Runs once at the start of the session.
+    Finds the next workout and stores it in the session state.
     """
     client = authorize_gspread()
     if client:
+        st.toast("✅ Підключено до Google Sheets!", icon="🔌")
         st.session_state.client = client
         st.session_state.workbook, all_data = get_workout_data(
             client,
@@ -293,6 +294,14 @@ def initialize_session():
             st.session_state.current_exercise_index = 0
             st.session_state.current_view = "workout"
             st.session_state.app_ready = True
+        else:
+            st.error("Не вдалося отримати дані з Google Sheet.")
+            st.session_state.app_ready = False
+
+    else:
+        st.error("Помилка підключення до Google Sheets.")
+        st.error("Перевір свої 'Secrets' в налаштуваннях Streamlit Cloud.")
+        st.session_state.app_ready = False
 
 def render_workout_view():
     """
